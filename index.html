@@ -1,0 +1,480 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JPG to PDF Converter</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f3f5f9;
+    color: #202536;
+}
+
+header {
+    background: #243b73;
+    color: white;
+    padding: 25px 6%;
+}
+
+header h1 {
+    margin: 0 0 7px;
+}
+
+header p {
+    margin: 0;
+    color: #dce5ff;
+}
+
+main {
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 0 18px;
+}
+
+.panel {
+    background: white;
+    border-radius: 14px;
+    padding: 22px;
+    box-shadow: 0 5px 22px #17255412;
+}
+
+.drop {
+    border: 2px dashed #9aaad0;
+    border-radius: 12px;
+    padding: 30px 15px;
+    text-align: center;
+    background: #f9faff;
+}
+
+input[type=file] {
+    max-width: 100%;
+    margin-top: 14px;
+}
+
+.controls {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+    align-items: end;
+}
+
+label {
+    display: block;
+    font-size: 13px;
+    font-weight: bold;
+    margin-bottom: 7px;
+}
+
+select {
+    padding: 10px;
+    border: 1px solid #ccd3e0;
+    border-radius: 8px;
+}
+
+button {
+    border: 0;
+    border-radius: 8px;
+    padding: 12px 17px;
+    background: #3156a5;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+.secondary {
+    background: #e8edf8;
+    color: #243b73;
+}
+
+.files {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.item {
+    border: 1px solid #e1e6ef;
+    border-radius: 10px;
+    padding: 9px;
+    position: relative;
+}
+
+.item img {
+    width: 100%;
+    height: 115px;
+    object-fit: contain;
+    background: #f1f3f7;
+    border-radius: 6px;
+}
+
+.item p {
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hint {
+    font-size: 13px;
+    color: #667085;
+    line-height: 1.5;
+}
+
+#status {
+    margin-top: 14px;
+    color: #3156a5;
+}
+
+.remove {
+    background: #b42318;
+    padding: 5px 8px;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>JPG to PDF Converter</h1>
+    <p>Convert your images into one PDF file.</p>
+</header>
+
+<main>
+<section class="panel">
+
+    <div class="drop">
+        <h3>Select Images</h3>
+        <p class="hint">
+            Choose multiple JPG, JPEG or PNG images.
+        </p>
+
+        <input
+            id="imageInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+        >
+    </div>
+
+    <div class="controls">
+
+        <div>
+            <label>PDF Page Size</label>
+            <select id="pageSize">
+                <option value="a4">A4</option>
+                <option value="letter">Letter</option>
+                <option value="fit">Fit to Image</option>
+            </select>
+        </div>
+
+        <div>
+            <label>Orientation</label>
+            <select id="orientation">
+                <option value="portrait">Portrait</option>
+                <option value="landscape">Landscape</option>
+            </select>
+        </div>
+
+        <div>
+            <label>Margin</label>
+            <select id="margin">
+                <option value="20">Small</option>
+                <option value="40" selected>Normal</option>
+                <option value="0">No Margin</option>
+            </select>
+        </div>
+
+    </div>
+
+    <div id="previews" class="files"></div>
+
+    <div class="controls">
+        <button id="convertBtn" disabled>
+            Convert to PDF
+        </button>
+
+        <button id="clearBtn" class="secondary" disabled>
+            Clear Images
+        </button>
+    </div>
+
+    <div id="status"></div>
+
+</section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+
+const input = document.getElementById("imageInput");
+const previews = document.getElementById("previews");
+const convertBtn = document.getElementById("convertBtn");
+const clearBtn = document.getElementById("clearBtn");
+const status = document.getElementById("status");
+
+let images = [];
+
+// Display selected images
+function render() {
+
+    previews.innerHTML = "";
+
+    images.forEach((file, index) => {
+
+        const url = URL.createObjectURL(file);
+
+        const card = document.createElement("div");
+        card.className = "item";
+
+        const img = document.createElement("img");
+        img.src = url;
+
+        img.onload = () => URL.revokeObjectURL(url);
+
+        const name = document.createElement("p");
+        name.textContent = (index + 1) + ". " + file.name;
+
+        const remove = document.createElement("button");
+        remove.className = "remove";
+        remove.textContent = "Remove";
+
+        remove.onclick = () => {
+            images.splice(index, 1);
+            render();
+        };
+
+        const up = document.createElement("button");
+        up.className = "secondary";
+        up.textContent = "↑";
+        up.disabled = index === 0;
+
+        up.onclick = () => {
+            [images[index - 1], images[index]] =
+            [images[index], images[index - 1]];
+            render();
+        };
+
+        const down = document.createElement("button");
+        down.className = "secondary";
+        down.textContent = "↓";
+        down.disabled = index === images.length - 1;
+
+        down.onclick = () => {
+            [images[index + 1], images[index]] =
+            [images[index], images[index + 1]];
+            render();
+        };
+
+        card.append(img, name, up, down, remove);
+        previews.append(card);
+
+    });
+
+    convertBtn.disabled = images.length === 0;
+    clearBtn.disabled = images.length === 0;
+}
+
+// Upload images
+input.addEventListener("change", () => {
+
+    const selected = Array.from(input.files);
+
+    const validImages = selected.filter(file =>
+        file.type.startsWith("image/")
+    );
+
+    images.push(...validImages);
+
+    render();
+
+    status.textContent =
+        validImages.length + " image(s) added.";
+
+    input.value = "";
+
+});
+
+// Clear all images
+clearBtn.onclick = () => {
+
+    images = [];
+
+    render();
+
+    status.textContent = "Images cleared.";
+
+};
+
+// Load image
+function loadImage(file) {
+
+    return new Promise((resolve, reject) => {
+
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            resolve(img);
+        };
+
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error("Image loading failed"));
+        };
+
+        img.src = url;
+
+    });
+
+}
+
+// Convert images into PDF
+convertBtn.onclick = async () => {
+
+    if (!images.length) return;
+
+    if (!window.jspdf) {
+        status.textContent = "PDF library not loaded. Check internet.";
+        return;
+    }
+
+    convertBtn.disabled = true;
+
+    status.textContent = "Creating PDF...";
+
+    try {
+
+        const { jsPDF } = window.jspdf;
+
+        const size = document.getElementById("pageSize").value;
+        const orientation = document.getElementById("orientation").value;
+        const margin = Number(document.getElementById("margin").value);
+
+        let pdf = null;
+
+        for (let i = 0; i < images.length; i++) {
+
+            const img = await loadImage(images[i]);
+
+            const naturalW = img.naturalWidth;
+            const naturalH = img.naturalHeight;
+
+            let pageW, pageH;
+
+            if (size === "fit") {
+
+                pageW = naturalW * 0.264583;
+                pageH = naturalH * 0.264583;
+
+            } else if (size === "letter") {
+
+                pageW = orientation === "portrait" ? 215.9 : 279.4;
+                pageH = orientation === "portrait" ? 279.4 : 215.9;
+
+            } else {
+
+                pageW = orientation === "portrait" ? 210 : 297;
+                pageH = orientation === "portrait" ? 297 : 210;
+
+            }
+
+            if (!pdf) {
+
+                pdf = new jsPDF({
+                    orientation: pageW > pageH ? "landscape" : "portrait",
+                    unit: "mm",
+                    format: [pageW, pageH]
+                });
+
+            } else {
+
+                pdf.addPage(
+                    [pageW, pageH],
+                    pageW > pageH ? "landscape" : "portrait"
+                );
+
+            }
+
+            const availableW = Math.max(1, pageW - 2 * margin);
+            const availableH = Math.max(1, pageH - 2 * margin);
+
+            const scale = Math.min(
+                availableW / naturalW,
+                availableH / naturalH
+            );
+
+            const drawW = naturalW * scale;
+            const drawH = naturalH * scale;
+
+            const x = (pageW - drawW) / 2;
+            const y = (pageH - drawH) / 2;
+
+            const canvas = document.createElement("canvas");
+
+            canvas.width = naturalW;
+            canvas.height = naturalH;
+
+            const ctx = canvas.getContext("2d");
+
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, naturalW, naturalH);
+
+            ctx.drawImage(img, 0, 0);
+
+            const data = canvas.toDataURL("image/jpeg", 0.92);
+
+            pdf.addImage(
+                data,
+                "JPEG",
+                x,
+                y,
+                drawW,
+                drawH,
+                undefined,
+                "FAST"
+            );
+
+            status.textContent =
+                `Processing image ${i + 1} of ${images.length}`;
+        }
+
+        pdf.save("images-to-pdf.pdf");
+
+        status.textContent =
+            "Success! Your PDF has been downloaded.";
+
+    } catch (error) {
+
+        console.error(error);
+
+        status.textContent =
+            "Something went wrong. Please try again.";
+
+    }
+
+    convertBtn.disabled = images.length === 0;
+
+};
+
+</script>
+
+</body>
+</html>
